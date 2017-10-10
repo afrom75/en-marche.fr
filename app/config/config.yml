@@ -190,6 +190,13 @@ sonata_admin:
         layout:  admin/layout.html.twig
     security:
         handler: sonata.admin.security.handler.role
+    dashboard:
+        groups:
+            Emails:
+                items:
+                    - app.admin.email
+                    - route:        app_admin_email_template_list
+                      label:        Templates
 
 bazinga_geocoder:
     providers:

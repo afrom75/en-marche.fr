@@ -1,56 +1,51 @@
 <?php
 
-namespace AppBundle\Controller\EnMarche;
+namespace AppBundle\Controller\Admin;
 
-use AppBundle\Entity\MailjetTemplate;
+use AppBundle\Mailer\Message\MessageRegistry;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @Route("/email-template")
  */
-class EmailTemplateTestController extends Controller
+class AdminEmailTemplateController extends Controller
 {
     /**
-     * @Route(name="app_email_template_list")
+     * @Route(name="app_admin_email_template_list")
      * @Method("GET")
+     * @Security("has_role('ROLE_APP_ADMIN_EMAIL_TEMPLATE_LIST')")
      */
     public function listAction(): Response
     {
-        $this->checkEnvironment();
+        $registry = new MessageRegistry();
+        $templates = $registry->getTypes();
 
-        $templates = $this->getDoctrine()->getRepository(MailjetTemplate::class)->findAll();
-
-        usort($templates, function (MailjetTemplate $a, MailjetTemplate $b) {
-            return strcmp($a->getMessageClass(), $b->getMessageClass());
-        });
-
-        return $this->render('email/list.html.twig', [
+        return $this->render('admin/email/template/list.html.twig', [
             'templates' => $templates,
         ]);
     }
 
     /**
-     * @Route("/html/{name}", name="app_email_template_html")
+     * @Route("/html/{name}", name="app_admin_email_template_html")
      * @Method("GET")
+     * @Security("has_role('ROLE_APP_ADMIN_EMAIL_TEMPLATE_VIEW')")
      */
     public function htmlAction(string $name): Response
     {
-        $this->checkEnvironment();
-
         return $this->renderBlock($name, 'body_html');
     }
 
     /**
-     * @Route("/text/{name}", name="app_email_template_text")
+     * @Route("/text/{name}", name="app_admin_email_template_text")
      * @Method("GET")
+     * @Security("has_role('ROLE_APP_ADMIN_EMAIL_TEMPLATE_VIEW')")
      */
     public function textAction(string $name): Response
     {
-        $this->checkEnvironment();
-
         return $this->renderBlock($name, 'body_text');
     }
 
@@ -59,19 +54,12 @@ class EmailTemplateTestController extends Controller
         // profiler toolbar should not interact with the template content
         $this->get('profiler')->disable();
 
-        $template = $this->get('twig')->load(sprintf('email/template/%s.html.twig', $templateName));
+        $template = $this->get('twig')->load(sprintf('email/template/%s_message.html.twig', $templateName));
 
         if (!$template->hasBlock($blockName)) {
             throw $this->createNotFoundException(sprintf('The template "%s" has no "%s" block.', $templateName, $blockName));
         }
 
         return new Response($template->renderBlock($blockName));
-    }
-
-    private function checkEnvironment()
-    {
-        if (!in_array($this->get('kernel')->getEnvironment(), ['dev', 'test'])) {
-            throw $this->createNotFoundException();
-        }
     }
 }
