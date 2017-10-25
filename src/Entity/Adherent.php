@@ -247,7 +247,7 @@ class Adherent implements UserInterface, GeoPointInterface, EncoderAwareInterfac
 
     public function getRoles(): array
     {
-        $roles = ['ROLE_ADHERENT'];
+        //$roles = ['ROLE_ADHERENT'];
 
         if ($this->isReferent()) {
             $roles[] = 'ROLE_REFERENT';
@@ -856,6 +856,7 @@ class Adherent implements UserInterface, GeoPointInterface, EncoderAwareInterfac
 
     public function isHost(): bool
     {
+        return false;
         return $this->getMemberships()->countCommitteeHostMemberships() >= 1;
     }
 
@@ -950,5 +951,10 @@ class Adherent implements UserInterface, GeoPointInterface, EncoderAwareInterfac
     public function getGroupFeedItems(): iterable
     {
         return $this->groupFeedItems;
+    }
+
+    public function isAdherent(): bool
+    {
+        return false;
     }
 }
