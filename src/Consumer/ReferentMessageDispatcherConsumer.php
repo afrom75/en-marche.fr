@@ -2,11 +2,12 @@
 
 namespace AppBundle\Consumer;
 
+use AppBundle\Entity\ReferentManagedUsersMessage;
 use AppBundle\Mailjet\MailjetService;
 use AppBundle\Mailjet\Message\ReferentMessage as MailjetMessage;
 use AppBundle\Referent\ReferentMessage;
-use AppBundle\Repository\AdherentRepository;
 use AppBundle\Repository\Projection\ReferentManagedUserRepository;
+use AppBundle\Repository\ReferentManagedUsersMessageRepository;
 use Doctrine\ORM\Internal\Hydration\IterableResult;
 use OldSound\RabbitMqBundle\RabbitMq\ConsumerInterface;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -18,9 +19,9 @@ class ReferentMessageDispatcherConsumer extends AbstractConsumer
      */
     private $mailer;
     /**
-     * @var AdherentRepository
+     * @var ReferentManagedUsersMessageRepository
      */
-    private $adherentRepository;
+    private $referentMessageRepository;
     /**
      * @var ReferentManagedUserRepository
      */
@@ -29,25 +30,23 @@ class ReferentMessageDispatcherConsumer extends AbstractConsumer
     protected function configureDataConstraints(): array
     {
         return [
-            'referent_uuid' => [new Assert\NotBlank()],
-            'filter' => [new Assert\NotBlank()],
-            'subject' => [new Assert\NotBlank()],
-            'content' => [new Assert\NotBlank()],
+            'uuid' => [new Assert\NotBlank()],
         ];
     }
 
     public function doExecute(array $data): int
     {
         try {
-            if (!$referent = $this->adherentRepository->findByUuid($data['referent_uuid'])) {
-                $this->getLogger()->error('Referent not found', $data);
-                $this->writeln($data['referent_uuid'], 'Referent not found, rejecting');
+            if (!$referentMessage = $this->referentMessageRepository->findOneByUuid($data['uuid'])) {
+                $this->getLogger()->error('Referent message not found', $data);
+                $this->writeln($data['uuid'], 'Referent message not found, rejecting');
 
                 return ConsumerInterface::MSG_ACK;
             }
 
-            $message = ReferentMessage::createFromArray($referent, $data);
-            $this->writeln($data['referent_uuid'], 'Dispatching message from '.$referent->getEmailAddress());
+            $referent = $referentMessage->getFrom();
+            $message = ReferentMessage::createFromMessage($referentMessage);
+            $this->writeln($data['uuid'], 'Dispatching message from '.$referent->getEmailAddress());
 
             /** @var IterableResult $results */
             $results = $this->referentManagedUserRepository->createDispatcherIterator($referent, $message->getFilter());
@@ -62,8 +61,7 @@ class ReferentMessageDispatcherConsumer extends AbstractConsumer
                 $chunk[] = $result[0];
 
                 if (MailjetService::PAYLOAD_MAXSIZE === $i) {
-                    $this->mailer->sendMessage(MailjetMessage::createFromModel($message, $chunk));
-                    $this->writeln($data['referent_uuid'], 'Message from '.$referent->getEmailAddress().' dispatched ('.$count.')');
+                    $this->sendMessage($referentMessage, $message, $chunk, $count);
 
                     $i = 0;
                     $chunk = [];
@@ -73,13 +71,35 @@ class ReferentMessageDispatcherConsumer extends AbstractConsumer
             }
 
             if (!empty($chunk)) {
-                $this->mailer->sendMessage(MailjetMessage::createFromModel($message, $chunk));
-                $this->writeln($data['referent_uuid'], 'Message from '.$referent->getEmailAddress().' dispatched ('.$count.')');
+                $this->sendMessage($referentMessage, $message, $chunk, $count);
             }
 
             return ConsumerInterface::MSG_ACK;
         } catch (\Exception $error) {
             $this->getLogger()->error('Consumer failed', ['exception' => $error]);
+
+            throw $error;
+        }
+    }
+
+    public function sendMessage(ReferentManagedUsersMessage $savedMessage, ReferentMessage $message, array $recipients, int $count)
+    {
+        $this->getDoctrine()->getConnection()->beginTransaction();
+
+        try {
+            $this->mailer->sendMessage(MailjetMessage::createFromModel($message, $recipients));
+
+            $this->writeln(
+                $savedMessage->getUuid()->toString(),
+                'Message from '.$message->getFrom()->getEmailAddress().' dispatched ('.$count.')'
+            );
+
+            $this->referentMessageRepository->incrementOffset($savedMessage, count($recipients));
+
+            $this->getDoctrine()->getConnection()->commit();
+        } catch (\Exception $error) {
+            $this->getManager()->close();
+            $this->getDoctrine()->getConnection()->rollback();
 
             throw $error;
         }
@@ -95,8 +115,8 @@ class ReferentMessageDispatcherConsumer extends AbstractConsumer
         $this->referentManagedUserRepository = $referentManagedUserRepository;
     }
 
-    public function setAdherentRepository(AdherentRepository $adherentRepository): void
+    public function setReferentMessageRepository(ReferentManagedUsersMessageRepository $referentMessageRepository): void
     {
-        $this->adherentRepository = $adherentRepository;
+        $this->referentMessageRepository = $referentMessageRepository;
     }
 }
