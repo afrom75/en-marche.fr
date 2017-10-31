@@ -69,6 +69,21 @@ class Group extends BaseGroup
         $this->updatedAt = $createdAt;
     }
 
+    public function getLatitude()
+    {
+        return $this->postAddress ? $this->postAddress->getLatitude() : null;
+    }
+
+    public function getLongitude()
+    {
+        return $this->postAddress ? $this->postAddress->getLongitude() : null;
+    }
+
+    public function getGeocodableAddress(): string
+    {
+        return $this->postAddress ? $this->postAddress->getGeocodableAddress() : '';
+    }
+
     public static function createSimple(UuidInterface $uuid, string $creatorUuid, string $name, string $description, PostAddress $address = null, PhoneNumber $phone = null, string $createdAt = 'now'): self
     {
         $group = new self(

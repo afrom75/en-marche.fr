@@ -22,4 +22,13 @@ class GroupController extends Controller
     {
         return new Response();
     }
+
+    /**
+     * @Route(name="app_search_groups")
+     * @Method("GET|POST")
+     */
+    public function searchAction(Request $request): Response
+    {
+        return new Response();
+    }
 }
