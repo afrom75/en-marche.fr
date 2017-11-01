@@ -1,4 +1,5 @@
 <?php
+
 namespace Tests\AppBundle\Consumer;
 
 use AppBundle\Repository\MailjetEmailRepository;
@@ -46,7 +47,8 @@ class AbstractMailjetConsumerTest extends TestCase
         $mailjetEmailRepository = $this->createMock(MailjetEmailRepository::class);
         $mailjetEmailRepository->expects($this->once())->method('findOneByUuid')->willReturn(null);
 
-        $collections = $this->createMock(ArrayCollection::class)->method('count')->willReturn(0);
+        $collections = $this->createMock(ArrayCollection::class);
+        $collections->expects($this->once())->method('count')->willReturn(0);
 
         $this->validator
             ->expects($this->once())
@@ -56,14 +58,19 @@ class AbstractMailjetConsumerTest extends TestCase
         $abstractConsumer = $this
             ->getMockBuilder(self::CLASS_NAME)
             ->setConstructorArgs([$this->validator, $this->registry])
-            ->setMethods(['getLogger'])
+            ->setMethods(['getLogger', 'getMailjetRepository'])
             ->getMockForAbstractClass();
 
         $message = $this->createMock(AMQPMessage::class);
         $message->body = json_encode(['uuid' => $uuid]);
         $logger = $this->createMock(LoggerInterface::class);
 
-        $abstractConsumer->method('getLogger')->willReturn($logger);
+        $abstractConsumer->expects($this->once())->method('getLogger')->willReturn($logger);
+        $abstractConsumer->expects($this->once())->method('getMailjetRepository')->willReturn($mailjetEmailRepository);
+
+        $this->setOutputCallback(function () {
+        });
+
         $this->assertEquals(ConsumerInterface::MSG_ACK, $abstractConsumer->execute($message));
     }
 }

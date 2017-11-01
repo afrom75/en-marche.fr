@@ -36,7 +36,7 @@ class ReferentMessageDispatcherConsumer extends AbstractConsumer
         ];
     }
 
-    public function doExecute(array $data): bool
+    public function doExecute(array $data): int
     {
         try {
             if (!$referent = $this->adherentRepository->findByUuid($data['referent_uuid'])) {

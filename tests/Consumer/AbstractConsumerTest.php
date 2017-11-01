@@ -1,4 +1,5 @@
 <?php
+
 namespace Tests\AppBundle\Consumer;
 
 use Doctrine\Bundle\DoctrineBundle\Registry;
@@ -9,7 +10,6 @@ use PhpAmqpLib\Message\AMQPMessage;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Validator\ConstraintViolationInterface;
-use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class AbstractConsumerTest extends TestCase
@@ -81,7 +81,7 @@ class AbstractConsumerTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('error')->with('Message structure is not valid', [
             'message' => $message->body,
-            'violations' => ['name' => ['is missing']]
+            'violations' => ['name' => ['is missing']],
         ]);
         $abstractConsumer->method('getLogger')->willReturn($logger);
         $this->assertEquals(ConsumerInterface::MSG_ACK, $abstractConsumer->execute($message));
@@ -98,5 +98,4 @@ class AbstractConsumerTest extends TestCase
         $this->expectOutputString(sprintf('%s | %s', 'Mon message', 'mon output').PHP_EOL);
         $abstractConsumer->writeln('Mon message', 'mon output');
     }
-
 }
